@@ -84,6 +84,9 @@ endif()
 list(APPEND GIT_SUBMODULES lib/mbedtls)
 list(APPEND GIT_SUBMODULES lib/tinyusb)
 
+# Workaround for pico-sdk host toolchain issue, see directory for details
+list(APPEND CMAKE_MODULE_PATH "${MICROPY_PORT_DIR}/tools_patch")
+
 # Include component cmake fragments
 include(${MICROPY_DIR}/py/py.cmake)
 include(${MICROPY_DIR}/extmod/extmod.cmake)
@@ -522,9 +525,22 @@ target_compile_options(${MICROPY_TARGET} PRIVATE
 
 target_link_options(${MICROPY_TARGET} PRIVATE
     -Wl,--defsym=__micropy_c_heap_size__=${MICROPY_C_HEAP_SIZE}
-    -Wl,--wrap=dcd_event_handler
     -Wl,--wrap=runtime_init_clocks
 )
+
+if(PICO_FLASH_SIZE_BYTES GREATER 0)
+    target_link_options(${MICROPY_TARGET} PRIVATE
+        -Wl,--defsym=__micropy_flash_size__=${PICO_FLASH_SIZE_BYTES}
+    )
+elseif(PICO_RP2040)
+    target_link_options(${MICROPY_TARGET} PRIVATE
+        -Wl,--defsym=__micropy_flash_size__=2048k # Default to 2MB
+    )
+elseif(PICO_RP2350)
+    target_link_options(${MICROPY_TARGET} PRIVATE
+        -Wl,--defsym=__micropy_flash_size__=4096k # Default to 4MB
+    )
+endif()
 
 if(PICO_RP2350)
     target_link_options(${MICROPY_TARGET} PRIVATE
